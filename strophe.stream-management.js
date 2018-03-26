@@ -113,7 +113,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	*/
 	_acknowledgedStanzaListeners: [],
 
-	addAcknowledgedStanzaListener(listener) {
+	addAcknowledgedStanzaListener: function (listener) {
 		this._acknowledgedStanzaListeners.push(listener);
 	},
 
@@ -275,7 +275,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 		}
 	},
 
-	_throwError(msg) {
+	_throwError: function(msg) {
 		console.error(msg);
 		throw new Error(msg);
 	}
