@@ -8,12 +8,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/horodnicdragos/strophejs-plugin-stream-management.git"
+    "url": "git+https://github.com/strophe/strophejs-plugin-stream-management.git"
   },
   "author": "Strophe plugin developers",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/horodnicdragos/strophejs-plugin-stream-management/issues"
+    "url": "https://github.com/strophe/strophejs-plugin-stream-management/issues"
   },
-  "homepage": "https://github.com/horodnicdragos/strophejs-plugin-stream-management#readme"
+  "homepage": "https://github.com/strophe/strophejs-plugin-stream-management#readme"
 }
