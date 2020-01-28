@@ -181,14 +181,10 @@ Strophe.addConnectionPlugin('streamManagement', {
 	* @public
 	*/
 	xmlOutput: function(elem) {
-		var child;
-		for (var i = 0; i < elem.children.length; i++) {
-			child = elem.children[i];
-			if (Strophe.isTagEqual(child, 'iq') ||
-			Strophe.isTagEqual(child, 'presence') ||
-			Strophe.isTagEqual(child, 'message')) {
-				this._increaseSentStanzasCounter(child);
-			}
+		if (Strophe.isTagEqual(elem, 'iq') ||
+			Strophe.isTagEqual(elem, 'presence') ||
+			Strophe.isTagEqual(elem, 'message')) {
+			this._increaseSentStanzasCounter(elem);
 		}
 
 		return this._originalXMLOutput.call(this._c, elem);
