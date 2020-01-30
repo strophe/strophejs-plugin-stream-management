@@ -18,11 +18,6 @@ Strophe.addConnectionPlugin('streamManagement', {
 	logging: true,
 
 	/**
-	* @property {Boolean} returnWholeStanza: Set to true to return the acknowledged stanzas, otherwise only return its ID.
-	*/
-	returnWholeStanza: false,
-
-	/**
 	* @property {Boolean} autoSendCountOnEveryIncomingStanza: Set to true to send an 'a' response after every stanza.
 	* @default false
 	* @public
@@ -253,7 +248,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 
 	_increaseSentStanzasCounter: function(elem) {
 		if (this._isStreamManagementEnabled) {
-			this._unacknowledgedStanzas.push(this.returnWholeStanza ? elem : elem.getAttribute('id'));
+			this._unacknowledgedStanzas.push(elem);
 
 			this._clientSentStanzasCounter++;
 
