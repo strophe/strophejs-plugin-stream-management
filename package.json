@@ -1,0 +1,26 @@
+{
+  "name": "strophejs-plugin-stream-management",
+  "version": "1.0.0",
+  "description": "Strophe.stream-management.js is a plugin that implements stream management on XMPP. ( XEP-0198 )",
+  "main": "lib/strophe.stream-management.js",
+  "scripts": {
+    "build": "rollup src/strophe.stream-management.js -f umd -g strophe.js:window -o lib/strophe.stream-management.js -m",
+    "prepublish": "npm run --silent build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strophe/strophejs-plugin-stream-management.git"
+  },
+  "author": "Strophe plugin developers",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/strophe/strophejs-plugin-stream-management/issues"
+  },
+  "homepage": "https://github.com/strophe/strophejs-plugin-stream-management#readme",
+  "devDependencies": {
+    "rollup": "^0.45.2"
+  },
+  "peerDependencies": {
+    "strophe.js": ">=1.2"
+  }
+}

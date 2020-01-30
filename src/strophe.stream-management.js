@@ -1,8 +1,9 @@
+import { $build, Strophe } from 'strophe.js';
 
 /**
 * StropheJS - Stream Management XEP-0198
 *
-* This plugin implements stream mangemament ACK capabilities of the specs XEP-0198.
+* This plugin implements stream management ACK capabilities of the specs XEP-0198.
 * Note: Resumption is not supported in this current implementation.
 *
 * Reference: http://xmpp.org/extensions/xep-0198.html
@@ -137,6 +138,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	init: function(conn) {
+		console.info('INIT CONN MANAGEMENT', conn);
 		this._c = conn;
 		Strophe.addNamespace('SM', this._NS);
 
