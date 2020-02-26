@@ -4,8 +4,9 @@ define([
     'jquery',
     'strophe.js',
     'streammanagement',
-    'MockServer'
-    ], function($, wrapper, streammanagement, MockServer) {
+    'MockServer',
+    'TestStropheConnection'
+    ], function($, wrapper, streammanagement, MockServer, TestStropheConnection) {
     const Strophe = wrapper.Strophe;
     const XMPP_DOMAIN = 'anonymous.server.com';
     const WEBSOCKET_URL = 'ws://localhost:8888';
@@ -76,7 +77,12 @@ define([
                 reject('The test got stuck?');
             }, 5000);
 
-            executor(resolve, reject);
+            const stropheConn = new TestStropheConnection({
+                wsUrl: WEBSOCKET_URL,
+                xmppDomain: XMPP_DOMAIN
+            });
+
+            executor({ resolve, reject, stropheConn });
         }).then(
             () => mockServer.cleanup(),
             error => {
@@ -84,97 +90,6 @@ define([
 
                 throw error;
             });
-    }
-
-    const getStatusString = function(status) {
-        switch (status) {
-            case Strophe.Status.ERROR:
-                return 'ERROR';
-            case Strophe.Status.CONNECTING:
-                return 'CONNECTING';
-            case Strophe.Status.CONNFAIL:
-                return 'CONNFAIL';
-            case Strophe.Status.AUTHENTICATING:
-                return 'AUTHENTICATING';
-            case Strophe.Status.AUTHFAIL:
-                return 'AUTHFAIL';
-            case Strophe.Status.CONNECTED:
-                return 'CONNECTED';
-            case Strophe.Status.DISCONNECTED:
-                return 'DISCONNECTED';
-            case Strophe.Status.DISCONNECTING:
-                return 'DISCONNECTING';
-            case Strophe.Status.ATTACHED:
-                return 'ATTACHED';
-            default:
-                return 'unknown';
-        }
-    };
-
-    class TestStropheConnection  {
-        constructor() {
-            this.c = new Strophe.Connection(WEBSOCKET_URL);
-            this.c.connect(
-                XMPP_DOMAIN,
-                null,
-                this._connect_cb.bind(this));
-        }
-
-        _connect_cb(status, error, elem) {
-            this.status = status;
-            console.info('Strophe conn status', getStatusString(status), error, elem);
-            const statusObserver = this._statusObserver;
-
-            if (statusObserver && statusObserver.status === status) {
-                this._statusObserver = undefined;
-                statusObserver.resolve({ status, error, elem});
-            }
-        }
-
-        enableStreamResume() {
-            this.c.streamManagement.enable(/* resume */ true);
-
-            return this.awaitResumeEnabled();
-        }
-
-        awaitStatus(status, timeout = 2000) {
-            return new Promise((resolve, reject) => {
-                this._statusObserver = {
-                    status,
-                    resolve
-                };
-                setTimeout(() => reject('Wait for ' + getStatusString(status) + ' timeout'), timeout);
-            });
-        }
-
-        awaitResumeEnabled(timeout = 2000) {
-            return new Promise((resolve, reject) => {
-                // Strophe calls it's resume method after streamManagement plugin enables stream resumption - override
-                // the function to catch the exact moment.
-                const originalResume = this.c.resume;
-                this.c.resume = () => {
-                    this.c.resume = originalResume;
-                    originalResume.call(this.c);
-
-                    resolve();
-                };
-                setTimeout(() => reject('Wait for resumed timeout'), timeout);
-            });
-        }
-
-        sendPingIQ(timeout = 2000) {
-            return new Promise((resolve, reject) => {
-                this.c.sendIQ(wrapper.$iq({
-                        to: XMPP_DOMAIN,
-                        type: 'get' })
-                        .c('ping', { xmlns: 'urn:xmpp:ping' }),
-                    resolve,
-                    error => {
-                        reject('Send ping error: ' + error && error.message);
-                    },
-                    timeout);
-            });
-        }
     }
 
     var run = function () {
@@ -190,9 +105,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, resolve => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
@@ -211,9 +124,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, resolve => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => {
                         stropheConn.c.streamManagement.enable(/* resume */ true);
@@ -238,9 +149,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, (resolve, reject) => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
@@ -272,9 +181,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, (resolve, reject) => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
@@ -306,10 +213,8 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, (resolve, reject) => {
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 let ping1Promise, ping2Promise;
-
-                const stropheConn = new TestStropheConnection();
 
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
@@ -351,9 +256,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, resolve => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
@@ -389,10 +292,9 @@ define([
                 responseStreams: [ responseStream ]
             };
 
-            return createTestPromise(mockServerOptions, (resolve, reject) => {
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 let pingPromises = [];
 
-                const stropheConn = new TestStropheConnection();
                 const waitForStanzasAck = new Promise((resolve, reject) => {
                     let counter = 0;
                     stropheConn.c.streamManagement.addAcknowledgedStanzaListener(() => {
@@ -435,9 +337,7 @@ define([
                 responseStreams:[ responseStream ]
             };
 
-            return createTestPromise(mockServerOptions, (resolve, reject) => {
-                const stropheConn = new TestStropheConnection();
-
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
