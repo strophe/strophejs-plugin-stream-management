@@ -109,7 +109,7 @@ define([
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         resolve();
                     });
             });
@@ -131,8 +131,8 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.ERROR))
                     .then(({ elem }) => {
-                        assert.equal('failed', elem.nodeName, 'failed element nodeName');
-                        assert.equal('urn:xmpp:sm:3', elem.namespaceURI, 'failed element xmlns');
+                        assert.equal(elem.nodeName, 'failed', 'failed element nodeName');
+                        assert.equal(elem.namespaceURI, 'urn:xmpp:sm:3', 'failed element xmlns');
                         resolve();
                     });
             });
@@ -158,7 +158,7 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.CONNECTED))
@@ -189,12 +189,12 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check token not lost');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check token not lost');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.CONNECTED))
@@ -230,13 +230,13 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.CONNECTED))
                     .then(()  => {
-                        assert.notEqual(undefined, ping1Promise);
-                        assert.notEqual(undefined, ping2Promise);
+                        assert.notEqual(ping1Promise, undefined);
+                        assert.notEqual(ping2Promise, undefined);
 
                         return ping1Promise
                             .then(() => ping2Promise)
@@ -267,12 +267,12 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(resumeToken, stropheConn.c.streamManagement.getResumeToken(), 'Check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.ERROR))
                     .then(({ error }) => {
-                        assert.equal('undefined-condition', error, 'check undefined-condition');
+                        assert.equal(error, 'undefined-condition', 'check undefined-condition');
                         resolve();
                     });
             });
@@ -314,13 +314,13 @@ define([
                         }
                     })
                     .then(()  => {
-                        assert.equal(STANZA_COUNT, pingPromises.length);
+                        assert.equal(pingPromises.length, STANZA_COUNT);
 
                         return Promise.all(pingPromises);
                     })
                     .then(()  => waitForStanzasAck)
                     .then(() => {
-                        assert.equal(STANZA_COUNT, stropheConn.c.streamManagement._serverProcesssedStanzasCounter);
+                        assert.equal(stropheConn.c.streamManagement._serverProcesssedStanzasCounter, STANZA_COUNT);
                     })
                     .then(resolve, reject);
             });
@@ -341,7 +341,7 @@ define([
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
-                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.disconnect();
                         assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
                         assert.equal(stropheConn.c.streamManagement.getResumeToken(), undefined,  'resume token cleared');
