@@ -113,10 +113,26 @@ Strophe.addConnectionPlugin('streamManagement', {
 		this._acknowledgedStanzaListeners.push(listener);
 	},
 
-	enable: function() {
-		this._c.send($build('enable', {xmlns: this._NS, resume: false}));
+	enable: function(resume) {
+		this._c.send($build('enable', { xmlns: this._NS, resume }));
 		this._c.flush();
 		this._c.pause();
+	},
+
+	getResumeToken: function() {
+		return this._resumeToken;
+	},
+
+	resume: function() {
+		if (!this.getResumeToken()) {
+			throw new Error('No resume token');
+		}
+		// FIXME add a check for proto/connection state DISCONNECTED
+
+		this._c.options.explicitResourceBinding = true;
+		this._resuming = true;
+
+		this._originalConnect.apply(this._c, this._connectArgs);
 	},
 
 	requestAcknowledgement: function() {
@@ -133,17 +149,58 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	init: function(conn) {
-		console.info('INIT CONN MANAGEMENT', conn);
 		this._c = conn;
 		Strophe.addNamespace('SM', this._NS);
 
 		// Storing original xmlOutput function to use additional logic
 		this._originalXMLOutput = this._c.xmlOutput;
 		this._c.xmlOutput = this.xmlOutput.bind(this);
+
+		this._originalConnect = this._c.connect;
+		this._c.connect = this._interceptConnectArgs.bind(this);
+
+		this._originalDoDisconnect = this._c._doDisconnect;
+		this._c._doDisconnect = this._interceptDoDisconnect.bind(this);
+
+		this._originalDisconnect = this._c.disconnect;
+		this._c.disconnect = this._interceptDisconnect.bind(this);
+	},
+
+	_interceptDisconnect: function() {
+		this._resumeToken = undefined;
+		this._originalDisconnect.apply(this._c, arguments);
+	},
+
+	_interceptDoDisconnect: function(condition) {
+		if (this.getResumeToken()
+				&& !this._resuming
+				&& this._c.connected && !this._c.disconnecting) {
+			this._resumeState = {
+				handlers: this._c.handlers,
+				timedHandlers: this._c.timedHandlers,
+				removeTimeds: this._c.removeTimeds,
+				removeHandlers: this._c.removeHandlers,
+				addTimeds: this._c.addTimeds,
+				addHandlers: this._c.addHandlers
+			};
+			this._storedJid = this._c.jid;
+
+			Strophe.debug('SM stored resume state, handler count: ' + this._resumeState.handlers.length);
+		}
+
+		this._originalDoDisconnect.apply(this._c, condition);
+	},
+
+	_interceptConnectArgs: function() {
+		this._connectArgs = arguments;
+
+		this._originalConnect.apply(this._c, arguments);
 	},
 
 	statusChanged: function (status) {
-		if (status === Strophe.Status.CONNECTED || status === Strophe.Status.DISCONNECTED) {
+		if (!this.getResumeToken()
+			&& (status === Strophe.Status.CONNECTED || status === Strophe.Status.DISCONNECTED)) {
+			Strophe.debug('SM reset state');
 
 			this._serverProcesssedStanzasCounter = 0;
 			this._clientProcessedStanzasCounter = 0;
@@ -152,6 +209,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 
 			this._isStreamManagementEnabled = false;
 			this._requestResponseIntervalCount = 0;
+
+			// FIXME not described in JSDocs
+			this._resuming = false;
 
 			this._unacknowledgedStanzas = [];
 
@@ -164,7 +224,29 @@ Strophe.addConnectionPlugin('streamManagement', {
 			}
 
 			this._requestHandler = this._c.addHandler(this._handleServerRequestHandler.bind(this), this._NS, 'r');
+			this._ackHandler = this._c.addHandler(this._handleServerAck.bind(this), this._NS, 'a');
 			this._incomingHandler = this._c.addHandler(this._incomingStanzaHandler.bind(this));
+
+			// FIXME handler instances stored, but never used
+			this._enabledHandler = this._c._addSysHandler(this._handleEnabled.bind(this), this._NS, 'enabled');
+			this._resumeFailedHandler = this._c._addSysHandler(this._handleResumeFailed.bind(this), this._NS, 'failed');
+			this._resumedHandler =  this._c._addSysHandler(this._handleResumed.bind(this), this._NS,'resumed');
+
+		} else if (status === Strophe.Status.BINDREQUIRED)  {
+			this._c.jid = this._storedJid;
+
+			// Restore Strophe handlers
+			for (const property in this._resumeState) {
+				this._c[property] = this._resumeState[property];
+			}
+
+			// FIXME check conditions if there's session ID and if enabled
+			this._c.send($build('resume', {
+				xmlns: this._NS,
+				h: this._clientProcessedStanzasCounter,
+				previd: this._resumeToken
+			}));
+			this._c.flush();
 		}
 	},
 
@@ -185,27 +267,53 @@ Strophe.addConnectionPlugin('streamManagement', {
 		return this._originalXMLOutput.call(this._c, elem);
 	},
 
-	_incomingStanzaHandler: function(elem) {
-		if (Strophe.isTagEqual(elem, 'enabled') && elem.getAttribute('xmlns') === this._NS) {
-			this._isStreamManagementEnabled = true;
-			this._c.resume();
+	_handleEnabled: function(elem) {
+		this._isStreamManagementEnabled = true;
+		// FIXME fail if requested, but not enabled
+		this._resumeToken = elem.getAttribute('resume') === 'true' && elem.getAttribute('id');
+
+		this._c.resume();
+
+		return true;
+	},
+
+	_handleResumeFailed: function(elem) {
+		this._c._changeConnectStatus(Strophe.Status.ERROR, null, elem);
+		this._c._doDisconnect();
+
+		return true;
+	},
+
+	_handleResumed: function(elem) {
+		// FIXME check if in the correct state
+		var handledCount = parseInt(elem.getAttribute('h'));
+		this._handleAcknowledgedStanzas(handledCount, this._serverProcesssedStanzasCounter);
+
+		this._resuming = false;
+		this._c.do_bind = false; // No need to bind our resource anymore
+		this._c.authenticated = true;
+		this._c.restored = true;
+
+		if (this.logging && this._unacknowledgedStanzas.length > 0) {
+			Strophe.debug('SM Sending unacknowledged stanzas', this._unacknowledgedStanzas);
+			for(const stanza of this._unacknowledgedStanzas) {
+				this._c.send(stanza);
+			}
+		} else {
+			Strophe.debug('SM No unacknowledged stanzas', this._unacknowledgedStanzas);
 		}
 
+		this._c._changeConnectStatus(Strophe.Status.CONNECTED, null);
+
+		return true;
+	},
+
+	_incomingStanzaHandler: function(elem) {
 		if (Strophe.isTagEqual(elem, 'iq') || Strophe.isTagEqual(elem, 'presence') || Strophe.isTagEqual(elem, 'message'))  {
 			this._increaseReceivedStanzasCounter();
 
 			if (this.autoSendCountOnEveryIncomingStanza) {
 				this._answerProcessedStanzas();
-			}
-		}
-
-		if (Strophe.isTagEqual(elem, 'a')) {
-			var handledCount = parseInt(elem.getAttribute('h'));
-			this._handleAcknowledgedStanzas(handledCount, this._serverProcesssedStanzasCounter);
-			this._serverProcesssedStanzasCounter = handledCount;
-
-			if (this.requestResponseInterval > 0) {
-				this._requestResponseIntervalCount = 0;
 			}
 		}
 
@@ -231,12 +339,26 @@ Strophe.addConnectionPlugin('streamManagement', {
 		}
 
 		if (this.logging && this._unacknowledgedStanzas.length > 0) {
-			console.warn('Unacknowledged stanzas', this._unacknowledgedStanzas);
+			Strophe.warn('SM Unacknowledged stanzas', this._unacknowledgedStanzas);
+		}
+
+		this._serverProcesssedStanzasCounter = reportedHandledCount;
+
+		if (this.requestResponseInterval > 0) {
+			this._requestResponseIntervalCount = 0;
 		}
 	},
 
 	_handleServerRequestHandler: function() {
 		this._answerProcessedStanzas();
+
+		return true;
+	},
+
+	_handleServerAck: function(elem){
+		var handledCount = parseInt(elem.getAttribute('h'));
+		this._handleAcknowledgedStanzas(handledCount, this._serverProcesssedStanzasCounter);
+
 		return true;
 	},
 
@@ -248,15 +370,22 @@ Strophe.addConnectionPlugin('streamManagement', {
 
 	_increaseSentStanzasCounter: function(elem) {
 		if (this._isStreamManagementEnabled) {
-			this._unacknowledgedStanzas.push(elem);
+			if (this._unacknowledgedStanzas.indexOf(elem) !== -1) {
 
+				return;
+			}
+
+			this._unacknowledgedStanzas.push(elem);
 			this._clientSentStanzasCounter++;
 
 			if (this.requestResponseInterval > 0) {
 				this._requestResponseIntervalCount++;
 
 				if (this._requestResponseIntervalCount === this.requestResponseInterval) {
-					this.requestAcknowledgement();
+					// FIXME Can not call send from onIdle.
+					setTimeout(() => {
+						this.requestAcknowledgement();
+					}, 1);
 				}
 			}
 		}
@@ -269,7 +398,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	_throwError: function(msg) {
-		console.error(msg);
+		Strophe.error(msg);
 		throw new Error(msg);
 	}
 
