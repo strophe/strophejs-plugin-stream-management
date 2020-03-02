@@ -56,7 +56,7 @@ To get received stream count use:
 	connection.streamManagement.getIncomingCounter();
 ```
 
-You may enable logging to have the console notify you when the server has acknowledged some but not all stanzas.
+You may enable logging to have the Strophe logger notify you when the server has acknowledged some but not all stanzas.
 Such instances can occur due to transmission delay and is therefore not necessarily a critical error.
 Logging is disabled by default.
 

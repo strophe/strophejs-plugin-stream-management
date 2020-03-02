@@ -15,7 +15,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	/**
 	* @property {Boolean} logging: Set to true to enable logging regarding out of sync stanzas.
 	*/
-	logging: true,
+	logging: false,
 
 	/**
 	* @property {Boolean} autoSendCountOnEveryIncomingStanza: Set to true to send an 'a' response after every stanza.
@@ -185,7 +185,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 			};
 			this._storedJid = this._c.jid;
 
-			Strophe.debug('SM stored resume state, handler count: ' + this._resumeState.handlers.length);
+			this.logging && Strophe.debug('SM stored resume state, handler count: ' + this._resumeState.handlers.length);
 		}
 
 		this._originalDoDisconnect.apply(this._c, condition);
@@ -200,7 +200,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	statusChanged: function (status) {
 		if (!this.getResumeToken()
 			&& (status === Strophe.Status.CONNECTED || status === Strophe.Status.DISCONNECTED)) {
-			Strophe.debug('SM reset state');
+			this.logging && Strophe.debug('SM reset state');
 
 			this._serverProcesssedStanzasCounter = 0;
 			this._clientProcessedStanzasCounter = 0;
@@ -294,13 +294,13 @@ Strophe.addConnectionPlugin('streamManagement', {
 		this._c.authenticated = true;
 		this._c.restored = true;
 
-		if (this.logging && this._unacknowledgedStanzas.length > 0) {
-			Strophe.debug('SM Sending unacknowledged stanzas', this._unacknowledgedStanzas);
+		if (this._unacknowledgedStanzas.length > 0) {
+			this.logging && Strophe.debug('SM Sending unacknowledged stanzas', this._unacknowledgedStanzas);
 			for(const stanza of this._unacknowledgedStanzas) {
 				this._c.send(stanza);
 			}
 		} else {
-			Strophe.debug('SM No unacknowledged stanzas', this._unacknowledgedStanzas);
+			this.logging && Strophe.debug('SM No unacknowledged stanzas', this._unacknowledgedStanzas);
 		}
 
 		this._c._changeConnectStatus(Strophe.Status.CONNECTED, null);
