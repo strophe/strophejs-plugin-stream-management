@@ -16,16 +16,36 @@ define([
         `<open xml:lang='en' version='1.0' from='${XMPP_DOMAIN}' xmlns='urn:ietf:params:xml:ns:xmpp-framing' id='0cda18a2-6ec2-46e9-bf43-abad458caacb'/>`,
         "<stream:features xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client'><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>ANONYMOUS</mechanism></mechanisms></stream:features>"
     ];
-    const OPEN_STREAM2 = [
-        `<open xml:lang='en' version='1.0' from='${XMPP_DOMAIN}' xmlns='urn:ietf:params:xml:ns:xmpp-framing' id='860ef67e-6af1-4e6f-ad2d-22e124a1c0ca'/>`,
-        "<stream:features xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><required/></bind><session xmlns='urn:ietf:params:xml:ns:xmpp-session'><optional/></session><ver xmlns='urn:xmpp:features:rosterver'/><sm xmlns='urn:xmpp:sm:2'><optional/></sm><sm xmlns='urn:xmpp:sm:3'><optional/></sm><c hash='sha-1' node='http://prosody.im' ver='A5axPJ3bu8TW84XiqwpG16Sype8=' xmlns='http://jabber.org/protocol/caps'/></stream:features>"
-    ];
+
+    function createStreamAfterAuth({ isSmSupported }) {
+        return isSmSupported
+            ? [
+                `<open xml:lang='en' version='1.0' from='${XMPP_DOMAIN}' xmlns='urn:ietf:params:xml:ns:xmpp-framing' id='860ef67e-6af1-4e6f-ad2d-22e124a1c0ca'/>`,
+                "<stream:features xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><required/></bind><session xmlns='urn:ietf:params:xml:ns:xmpp-session'><optional/></session><ver xmlns='urn:xmpp:features:rosterver'/><sm xmlns='urn:xmpp:sm:2'><optional/></sm><sm xmlns='urn:xmpp:sm:3'><optional/></sm><c hash='sha-1' node='http://prosody.im' ver='A5axPJ3bu8TW84XiqwpG16Sype8=' xmlns='http://jabber.org/protocol/caps'/></stream:features>"
+            ]
+            : [
+                `<open xml:lang='en' version='1.0' from='${XMPP_DOMAIN}' xmlns='urn:ietf:params:xml:ns:xmpp-framing' id='860ef67e-6af1-4e6f-ad2d-22e124a1c0ca'/>`,
+                "<stream:features xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><required/></bind><session xmlns='urn:ietf:params:xml:ns:xmpp-session'><optional/></session><ver xmlns='urn:xmpp:features:rosterver'/></stream:features>"
+            ];
+    }
+
+    function createSmNotSupported(continuation = []) {
+        const stream = [
+            OPEN_STREAM,
+            "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
+            createStreamAfterAuth({ isSmSupported: false }),
+            `<iq type='result' xmlns='jabber:client' id='_bind_auth_2'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><jid>${JID}</jid></bind></iq>`,
+            `<iq xmlns='jabber:client' type='result' to='${JID}' id='_session_auth_2'/>`
+        ];
+
+        return stream.concat(continuation);
+    }
 
     function createResumedStream({ resumeToken }) {
         return [
             OPEN_STREAM,
             "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
-            OPEN_STREAM2,
+            createStreamAfterAuth({ isSmSupported: true }),
             `<resumed xmlns='urn:xmpp:sm:3' h='0' previd='${resumeToken}'/>`,
             'result',
             'result'
@@ -36,7 +56,7 @@ define([
         return [
                 OPEN_STREAM,
                 "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
-                OPEN_STREAM2,
+                createStreamAfterAuth({ isSmSupported: true }),
                 "<stream:error xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client'>" +
                     "<undefined-condition xmlns='urn:ietf:params:xml:ns:xmpp-streams'/>" +
                     "<handled-count-too-high xmlns='urn:xmpp:sm:3' h='0' send-count='0'/>" +
@@ -54,7 +74,7 @@ define([
         return [
             OPEN_STREAM,
             "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
-            OPEN_STREAM2,
+            createStreamAfterAuth({ isSmSupported: true }),
             `<iq type='result' xmlns='jabber:client' id='_bind_auth_2'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><jid>${JID}</jid></bind></iq>`,
             `<iq xmlns='jabber:client' type='result' to='${JID}' id='_session_auth_2'/>`,
             failToEnableResume
@@ -82,6 +102,8 @@ define([
                 xmppDomain: XMPP_DOMAIN
             });
 
+            stropheConn.connect();
+
             executor({ resolve, reject, stropheConn });
         }).then(
             () => mockServer.cleanup(),
@@ -95,6 +117,42 @@ define([
     var run = function () {
         QUnit.module("stream management");
 
+        QUnit.test("is supported", assert => {
+            // The test checks if the 'isSupported' flag is set and reset correctly. On the first connection it's
+            // supported, but on the 2nd attempt is not.
+            const firstConnection = createResponseStream({});
+
+            // replace the <enabled> response with 'ignore' where the <close> msg will be received on disconnect
+            firstConnection[firstConnection.length - 1] = 'ignore';
+            firstConnection.push('ignore'); // presence unavailable
+
+            const mockServerOptions = {
+                assert,
+                wsUrl: WEBSOCKET_URL,
+                responseStreams: [
+                    firstConnection,
+                    createSmNotSupported()
+                ]
+            };
+
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    .then(() => {
+                        assert.equal(stropheConn.isSmSupported(), true, "check SM support");
+
+                        stropheConn.c.disconnect();
+                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
+
+                        stropheConn.connect();
+
+                        return stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    })
+                    .then(() => {
+                        assert.equal(stropheConn.isSmSupported(), false, "check not supported");
+                    })
+                    .then(resolve, reject);
+            });
+        });
         QUnit.test("enable stream resume", assert => {
             const resumeToken = '1257';
             const mockServerOptions = {
@@ -105,13 +163,13 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, ({ resolve, stropheConn }) => {
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
                         assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
-                        resolve();
-                    });
+                    })
+                    .then(resolve, reject);
             });
         });
 

@@ -6,8 +6,11 @@ define(['strophe.js'], function(wrapper) {
         constructor({ wsUrl, xmppDomain }) {
             this.xmppDomain = xmppDomain;
             this.c = new Strophe.Connection(wsUrl);
+        }
+
+        connect() {
             this.c.connect(
-                xmppDomain,
+                this.xmppDomain,
                 null,
                 this._connect_cb.bind(this));
         }
@@ -52,6 +55,10 @@ define(['strophe.js'], function(wrapper) {
                 };
                 setTimeout(() => reject('Wait for resumed timeout'), timeout);
             });
+        }
+
+        isSmSupported() {
+            return this.c.streamManagement.isSupported();
         }
 
         sendPingIQ(timeout = 2000) {
