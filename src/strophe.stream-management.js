@@ -273,6 +273,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 				previd: this._resumeToken
 			}));
 			this._c.flush();
+		} else if (status === Strophe.Status.ERROR) {
+			this.logging && Strophe.debug('SM cleared resume token on error');
+			this._resumeToken = undefined;
 		}
 	},
 

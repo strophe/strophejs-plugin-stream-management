@@ -52,6 +52,17 @@ define([
         ];
     }
 
+    function createFailedWithItemNotFound() {
+        return [
+            OPEN_STREAM,
+            "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
+            createStreamAfterAuth({ isSmSupported: true }),
+            "<failed xmlns='urn:xmpp:sm:3'>"+
+                "<item-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/>" +
+            "</failed>"
+        ];
+    }
+
     function createFailedWithTooManyAck() {
         return [
                 OPEN_STREAM,
@@ -314,7 +325,7 @@ define([
                 ]
             };
 
-            return createTestPromise(mockServerOptions, ({ resolve, stropheConn }) => {
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
@@ -325,14 +336,59 @@ define([
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
                     .then(() => {
-                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken() , resumeToken, 'check resume token');
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.ERROR))
                     .then(({ error }) => {
                         assert.equal(error, 'undefined-condition', 'check undefined-condition');
-                        resolve();
-                    });
+                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken() , undefined, 'resume token cleared');
+                    })
+                    .then(resolve, reject);
+            });
+        });
+        QUnit.test("resume failed with item-not-found", assert => {
+            const resumeToken = '1257';
+            const mockServerOptions = {
+                assert,
+                wsUrl: WEBSOCKET_URL,
+                responseStreams: [
+                    createResponseStream({ resumeToken }),
+                    createFailedWithItemNotFound()
+                ]
+            };
+
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    .then(() => stropheConn.enableStreamResume())
+                    .then(() => {
+                        // Close the websocket and make Strophe the connection's been dropped
+                        stropheConn.c._proto.socket.close();
+                    })
+                    .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
+                    .then(() => {
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken() , resumeToken, 'check resume token');
+
+                        // Set invalid resume token
+                        stropheConn.c.streamManagement._resumeToken = 'invalid123';
+
+                        stropheConn.c.streamManagement.resume();
+                    })
+                    .then(() => stropheConn.awaitStatus(Strophe.Status.ERROR))
+                    .then(({ elem }) => {
+                        assert.equal(elem.tagName, 'failed', 'check failed element');
+                        assert.equal(elem.namespaceURI, 'urn:xmpp:sm:3', 'check failed namespace');
+                        assert.equal(
+                            elem.getElementsByTagNameNS(
+                                'urn:ietf:params:xml:ns:xmpp-stanzas',
+                                'item-not-found').length,
+                            1,
+                            'check item-not-found');
+                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken() , undefined, 'resume token cleared');
+                    })
+                    .then(resolve, reject);
             });
         });
         QUnit.test('stanza acknowledgment', (assert) => {
