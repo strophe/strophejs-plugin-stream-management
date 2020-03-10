@@ -307,7 +307,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	_handleResumeFailed: function(elem) {
-		this._c._changeConnectStatus(Strophe.Status.ERROR, null, elem);
+		const error = elem && elem.firstElementChild && elem.firstElementChild.tagName;
+
+		this._c._changeConnectStatus(Strophe.Status.ERROR, error, elem);
 		this._c._doDisconnect();
 
 		return true;

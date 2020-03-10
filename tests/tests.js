@@ -376,9 +376,10 @@ define([
                         stropheConn.c.streamManagement.resume();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.ERROR))
-                    .then(({ elem }) => {
+                    .then(({ elem, error }) => {
                         assert.equal(elem.tagName, 'failed', 'check failed element');
                         assert.equal(elem.namespaceURI, 'urn:xmpp:sm:3', 'check failed namespace');
+                        assert.equal(error, 'item-not-found', 'item-not-found error');
                         assert.equal(
                             elem.getElementsByTagNameNS(
                                 'urn:ietf:params:xml:ns:xmpp-stanzas',
