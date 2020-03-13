@@ -187,7 +187,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 		this._originalDisconnect.apply(this._c, arguments);
 	},
 
-	_interceptDoDisconnect: function(condition) {
+	_interceptDoDisconnect: function() {
 		if (this.getResumeToken()
 				&& !this._resuming
 				&& this._c.connected && !this._c.disconnecting) {
@@ -204,7 +204,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 			this.logging && Strophe.debug('SM stored resume state, handler count: ' + this._resumeState.handlers.length);
 		}
 
-		this._originalDoDisconnect.apply(this._c, condition);
+		this._originalDoDisconnect.apply(this._c, arguments);
 	},
 
 	_interceptConnectArgs: function() {
