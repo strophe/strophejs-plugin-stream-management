@@ -122,6 +122,8 @@ Strophe.addConnectionPlugin('streamManagement', {
 	enable: function(resume) {
 		if (!this._isSupported) {
 			throw new Error('The server doesn\'t support urn:xmpp:sm:3 namespace');
+		} else if (this._connectionStatus !== Strophe.Status.CONNECTED) {
+			throw new Error('enable() can only be called in the CONNECTED state');
 		}
 		this._c.send($build('enable', { xmlns: this._NS, resume }));
 		this._c.flush();
@@ -140,7 +142,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 		if (!this.getResumeToken()) {
 			throw new Error('No resume token');
 		}
-		// FIXME add a check for proto/connection state DISCONNECTED
+		if (this._connectionStatus !== Strophe.Status.DISCONNECTED) {
+			throw new Error('resume() can only be called in the DISCONNECTED state');
+		}
 
 		this._c.options.explicitResourceBinding = true;
 		this._resuming = true;
@@ -149,6 +153,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	requestAcknowledgement: function() {
+		if (this._connectionStatus !== Strophe.Status.CONNECTED) {
+			throw new Error('requestAcknowledgement() can only be called in the CONNECTED state');
+		}
 		this._requestResponseIntervalCount = 0;
 		this._c.send($build('r', { xmlns: this._NS }));
 	},
@@ -204,6 +211,10 @@ Strophe.addConnectionPlugin('streamManagement', {
 			this.logging && Strophe.debug('SM stored resume state, handler count: ' + this._resumeState.handlers.length);
 		}
 
+		// Remove any queued stanzas from the buffer that have failed to send while the socket was closed,
+		// as they would interfere with the resume flow. They will be resent anyway.
+		this._c._data = [];
+
 		this._originalDoDisconnect.apply(this._c, arguments);
 	},
 
@@ -220,6 +231,7 @@ Strophe.addConnectionPlugin('streamManagement', {
 	},
 
 	statusChanged: function (status) {
+		this._connectionStatus = status;
 		if (!this.getResumeToken()
 			&& (status === Strophe.Status.CONNECTED || status === Strophe.Status.DISCONNECTED)) {
 			this.logging && Strophe.debug('SM reset state');
@@ -415,7 +427,9 @@ Strophe.addConnectionPlugin('streamManagement', {
 				if (this._requestResponseIntervalCount === this.requestResponseInterval) {
 					// FIXME Can not call send from onIdle.
 					setTimeout(() => {
-						this.requestAcknowledgement();
+						if (this._connectionStatus === Strophe.Status.CONNECTED) {
+							this.requestAcknowledgement();
+						}
 					}, 1);
 				}
 			}

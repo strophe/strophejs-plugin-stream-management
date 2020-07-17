@@ -294,7 +294,7 @@ define([
                         ping1Promise = stropheConn.sendPingIQ();
                         ping2Promise = stropheConn.sendPingIQ();
 
-                        // Close the websocket and make Strophe the connection's been dropped
+                        // Close the websocket and make Strophe think the connection's been dropped
                         stropheConn.c._proto.socket.close();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
@@ -331,7 +331,7 @@ define([
                     .then(() => {
                         // Modify the client processed counter to make server return an error on resume
                         stropheConn.c.streamManagement._clientProcessedStanzasCounter += 2;
-                        // Close the websocket and make Strophe the connection's been dropped
+                        // Close the websocket and make Strophe think the connection's been dropped
                         stropheConn.c._proto.socket.close();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
@@ -363,7 +363,7 @@ define([
                 stropheConn.awaitStatus(Strophe.Status.CONNECTED)
                     .then(() => stropheConn.enableStreamResume())
                     .then(() => {
-                        // Close the websocket and make Strophe the connection's been dropped
+                        // Close the websocket and make Strophe think the connection's been dropped
                         stropheConn.c._proto.socket.close();
                     })
                     .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
@@ -436,6 +436,84 @@ define([
                     .then(()  => waitForStanzasAck)
                     .then(() => {
                         assert.equal(stropheConn.c.streamManagement._serverProcesssedStanzasCounter, STANZA_COUNT);
+                    })
+                    .then(resolve, reject);
+            });
+        });
+        QUnit.test("recovers from calling send while the websocket is closed", function(assert) {
+            const resumeToken = '1234';
+            const mockServerOptions = {
+                assert,
+                responseStreams: [
+                    createResponseStream({ resumeToken }),
+                    createResumedStream({ resumeToken })
+                ]
+            };
+
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    .then(() => stropheConn.enableStreamResume())
+                    .then(() => {
+                        assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
+                        // Close the websocket and make Strophe think the connection's been dropped
+                        stropheConn.c._proto.socket.close();
+
+                        return assert.rejects(
+                            stropheConn.sendPingIQ(),
+                            /WebSocket is already in CLOSING or CLOSED state/,
+                            "sendPingIQ should reject when not connected");
+                    })
+                    .then(() => stropheConn.awaitStatus(Strophe.Status.DISCONNECTED))
+                    .then(() => {
+                        stropheConn.c.streamManagement.resume();
+                    })
+                    .then(() => stropheConn.awaitStatus(Strophe.Status.CONNECTED))
+                    .then(resolve, reject);
+            });
+        });
+        QUnit.test("resume throws when not in DISCONNECTED", function(assert) {
+            const resumeToken = '1234';
+            const mockServerOptions = {
+                assert,
+                responseStreams: [ createResponseStream({ resumeToken }) ]
+            };
+
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    .then(() => stropheConn.enableStreamResume())
+                    .then(() => {
+                        assert.throws(
+                            () => stropheConn.c.streamManagement.resume(),
+                            /resume\(\) can only be called in the DISCONNECTED state/,
+                            'resume() throws while in CONNECTED');
+                    })
+                    .then(resolve, reject);
+            });
+        });
+        QUnit.test("does not request requestAcknowledgement() when disconnected", function(assert) {
+            const resumeToken = '1234';
+            const responseStream = createResponseStream({ resumeToken });
+
+            responseStream.push('ignore');
+            responseStream.push('ignore');
+            responseStream.push('ignore');
+            responseStream.push('ignore');
+
+            const mockServerOptions = {
+                assert,
+                responseStreams:[ responseStream ]
+            };
+
+            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                    .then(() => stropheConn.enableStreamResume())
+                    .then(() => {
+                        stropheConn.sendPingIQ();
+                        stropheConn.sendPingIQ();
+                        stropheConn.sendPingIQ();
+                        stropheConn.sendPingIQ();
+                        stropheConn.c._proto.socket.close();
+                        return assert.rejects(stropheConn.sendPingIQ());
                     })
                     .then(resolve, reject);
             });
