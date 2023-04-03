@@ -1,4 +1,7 @@
 /* global equal, notEqual, ok, module, test */
+// add timestamps in front of log messages
+require('console-stamp')(console, '[HH:MM:ss.l]');
+
 const { JSDOM } = require('jsdom');
 
 const dom = new JSDOM();
