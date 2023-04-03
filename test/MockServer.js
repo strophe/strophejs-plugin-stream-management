@@ -28,6 +28,8 @@ module.exports =
                     let response;
                     if (msg.startsWith('<r xmlns="urn:xmpp:sm:3"')) {
                         response = `<a xmlns="urn:xmpp:sm:3" h="${processedStanzas}" />`;
+                    } else if (msg === '<close xmlns="urn:ietf:params:xml:ns:xmpp-framing"/>') {
+                        response = 'close';
                     } else {
                         response = responseStream[socket.respIdx];
                         socket.respIdx += 1;
