@@ -542,7 +542,10 @@ const TestStropheConnection = require('./TestStropheConnection');
                     .then(() => {
                         assert.equal(stropheConn.c.streamManagement.getResumeToken(), resumeToken, 'check resume token');
                         stropheConn.c.disconnect();
-                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
+                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTING, 'disconnected status');
+                        return stropheConn.awaitStatus(Strophe.Status.DISCONNECTED);
+                    })
+                    .then (() => {
                         assert.equal(stropheConn.c.streamManagement.getResumeToken(), undefined,  'resume token cleared');
                     })
                     .then(resolve, reject);
