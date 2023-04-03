@@ -1,0 +1,21 @@
+name: Simple CI
+
+on: [pull_request]
+
+jobs:
+  lint:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'npm'
+    - run: npm install
+    - name: Check git status
+      run: git status
+    - name: Build
+      run: npm run build
+    - name: Run tests
+      run: npm tests
