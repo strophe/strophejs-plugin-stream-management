@@ -5,7 +5,8 @@
   "main": "lib/strophe.stream-management.js",
   "scripts": {
     "build": "rollup src/strophe.stream-management.js -f umd -g strophe.js:window -o lib/strophe.stream-management.js -m",
-    "prepublish": "npm run --silent build"
+    "prepublish": "npm run --silent build",
+    "test": "qunit"
   },
   "repository": {
     "type": "git",
@@ -20,12 +21,12 @@
   "devDependencies": {
     "http-server": "^14.1.1",
     "jquery": "3.2.1",
+    "jsdom": "^21.1.1",
+    "mock-socket": "9.2.1",
     "qunit": "2.19.4",
-    "requirejs": "2.3.6",
     "rollup": "^3.20.2",
     "run-headless-chromium": "^0.1.1",
-    "strophe.js": "^1.3.4",
-    "mock-socket": "9.2.1"
+    "strophe.js": "^1.3.4"
   },
   "peerDependencies": {
     "strophe.js": ">=1.3.4"

@@ -1,8 +1,10 @@
-define(['websocket'], function(websocket) {
+// const WebSocket = require('ws');
+const { WebSocket, Server } = require('mock-socket');
+global.WebSocket = WebSocket;
+
+module.exports =
     class MockServer {
         constructor({ assert, responseStreams, userJid, wsUrl, xmppDomain }) {
-            const Server = websocket.Server;
-
             this.mockServer = new Server(wsUrl);
             let socketCounter = 0;
 
@@ -65,7 +67,4 @@ define(['websocket'], function(websocket) {
             }
             this.mockServer.stop();
         }
-    }
-
-    return MockServer;
-});
+    };

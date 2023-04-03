@@ -1,13 +1,17 @@
 /* global equal, notEqual, ok, module, test */
+const { JSDOM } = require('jsdom');
 
-define([
-    'jquery',
-    'strophe.js',
-    'streammanagement',
-    'MockServer',
-    'TestStropheConnection'
-    ], function($, wrapper, streammanagement, MockServer, TestStropheConnection) {
-    const Strophe = wrapper.Strophe;
+const dom = new JSDOM();
+
+global.document = dom.window.document;
+global.DOMParser = new JSDOM().window.DOMParser;
+
+require('jquery')(dom.window)
+const { Strophe } = require('strophe.js');
+require('../lib/strophe.stream-management');
+const MockServer = require('./MockServer.js');
+const TestStropheConnection = require('./TestStropheConnection');
+
     const XMPP_DOMAIN = 'anonymous.server.com';
     const WEBSOCKET_URL = 'ws://localhost:8888';
     const JID = `8a5dce26-73ee-4505-bd0e-cb44bc3923dc@${XMPP_DOMAIN}/Q0TEoAmA`;
@@ -125,7 +129,6 @@ define([
             });
     }
 
-    var run = function () {
         QUnit.module("stream management");
 
         QUnit.test("is supported", assert => {
@@ -542,6 +545,3 @@ define([
                     .then(resolve, reject);
             });
         });
-   };
-    return {run: run};
-});

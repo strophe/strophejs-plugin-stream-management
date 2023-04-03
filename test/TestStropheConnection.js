@@ -1,7 +1,32 @@
-define(['strophe.js'], function(wrapper) {
-    const { getStatusString, Strophe } = wrapper;
-    const $iq = wrapper.$iq;
+const { $iq, Strophe } = require('strophe.js');
+const { Status } = Strophe;
 
+    function getStatusString(status) {
+        switch (status) {
+            case Status.ERROR:
+                return 'ERROR';
+            case Status.CONNECTING:
+                return 'CONNECTING';
+            case Status.CONNFAIL:
+                return 'CONNFAIL';
+            case Status.AUTHENTICATING:
+                return 'AUTHENTICATING';
+            case Status.AUTHFAIL:
+                return 'AUTHFAIL';
+            case Status.CONNECTED:
+                return 'CONNECTED';
+            case Status.DISCONNECTED:
+                return 'DISCONNECTED';
+            case Status.DISCONNECTING:
+                return 'DISCONNECTING';
+            case Status.ATTACHED:
+                return 'ATTACHED';
+            default:
+                return 'unknown';
+        }
+    }
+
+module.exports =
     class TestStropheConnection {
         constructor({ wsUrl, xmppDomain }) {
             this.xmppDomain = xmppDomain;
@@ -74,7 +99,4 @@ define(['strophe.js'], function(wrapper) {
                     timeout);
             });
         }
-    }
-
-    return TestStropheConnection;
-});
+    };
