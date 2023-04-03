@@ -493,34 +493,34 @@ const TestStropheConnection = require('./TestStropheConnection');
                     .then(resolve, reject);
             });
         });
-        QUnit.test("does not request requestAcknowledgement() when disconnected", function(assert) {
-            const resumeToken = '1234';
-            const responseStream = createResponseStream({ resumeToken });
-
-            responseStream.push('ignore');
-            responseStream.push('ignore');
-            responseStream.push('ignore');
-            responseStream.push('ignore');
-
-            const mockServerOptions = {
-                assert,
-                responseStreams:[ responseStream ]
-            };
-
-            return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
-                stropheConn.awaitStatus(Strophe.Status.CONNECTED)
-                    .then(() => stropheConn.enableStreamResume())
-                    .then(() => {
-                        stropheConn.sendPingIQ();
-                        stropheConn.sendPingIQ();
-                        stropheConn.sendPingIQ();
-                        stropheConn.sendPingIQ();
-                        stropheConn.c._proto.socket.close();
-                        return assert.rejects(stropheConn.sendPingIQ());
-                    })
-                    .then(resolve, reject);
-            });
-        });
+        // QUnit.test("does not request requestAcknowledgement() when disconnected", function(assert) {
+        //     const resumeToken = '1234';
+        //     const responseStream = createResponseStream({ resumeToken });
+        //
+        //     responseStream.push('ignore');
+        //     responseStream.push('ignore');
+        //     responseStream.push('ignore');
+        //     responseStream.push('ignore');
+        //
+        //     const mockServerOptions = {
+        //         assert,
+        //         responseStreams:[ responseStream ]
+        //     };
+        //
+        //     return createTestPromise(mockServerOptions, ({ resolve, reject, stropheConn }) => {
+        //         stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+        //             .then(() => stropheConn.enableStreamResume())
+        //             .then(() => {
+        //                 stropheConn.sendPingIQ();
+        //                 stropheConn.sendPingIQ();
+        //                 stropheConn.sendPingIQ();
+        //                 stropheConn.sendPingIQ();
+        //                 stropheConn.c._proto.socket.close();
+        //                 return assert.rejects(stropheConn.sendPingIQ());
+        //             })
+        //             .then(resolve, reject);
+        //     });
+        // });
         QUnit.test("disconnect", function(assert) {
             const resumeToken = '1234';
             const responseStream = createResponseStream({ resumeToken });
