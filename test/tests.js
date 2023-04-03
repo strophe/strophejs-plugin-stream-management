@@ -158,11 +158,11 @@ const TestStropheConnection = require('./TestStropheConnection');
                         assert.equal(stropheConn.isSmSupported(), true, "check SM support");
 
                         stropheConn.c.disconnect();
-                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTED, 'disconnected status');
+                        assert.equal(stropheConn.status, Strophe.Status.DISCONNECTING, 'disconnected status');
 
-                        stropheConn.connect();
-
-                        return stropheConn.awaitStatus(Strophe.Status.CONNECTED)
+                        return stropheConn.awaitStatus(Strophe.Status.DISCONNECTED)
+                            .then(() => stropheConn.connect())
+                            .then (() => stropheConn.awaitStatus(Strophe.Status.CONNECTED));
                     })
                     .then(() => {
                         assert.equal(stropheConn.isSmSupported(), false, "check not supported");
